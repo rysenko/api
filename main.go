@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"net/http/httputil"
 	"fmt"
+	"os"
+	"strings"
 )
 
 func makeHandler(target string) func(w http.ResponseWriter, r *http.Request) {
@@ -20,11 +22,19 @@ func healthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	const defaultPort = ":3000"
-
-	http.HandleFunc("/account/", makeHandler("http://account"))
-	http.HandleFunc("/contract/", makeHandler("http://contract"))
+	port := os.Getenv("PORT")
+	if len(port) == 0 {
+		port = "3000"
+	}
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "NET_") {
+			pair := strings.Split(e[4:], "=")
+			pattern, target := "/"+pair[0]+"/", pair[1]
+			fmt.Printf("Route %s to %s\n", pattern, target)
+			http.HandleFunc(pattern, makeHandler(target))
+		}
+	}
 	http.HandleFunc("/health", healthCheck)
-	http.ListenAndServe(defaultPort, nil)
+	fmt.Printf("Listening port %s\n", port)
+	http.ListenAndServe(":"+port, nil)
 }
-
